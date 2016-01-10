@@ -7,19 +7,69 @@ output:
 
 
 ## Loading and preprocessing the data
-
+```{r}
+setwd('~/src/RepData_PeerAssessment1')
+rawData = read.csv(file='activity.csv')
+# remove NA
+d = rawData[complete.cases(rawData), ]
+```
 
 
 ## What is mean total number of steps taken per day?
-
+```{r}
+stepsByDay = aggregate(d$steps, by=list(d$date), FUN=sum)
+hist(stepsByDay$x, xlab='Steps per day', main='Histogram of steps per day')
+meanStepsPerDay = mean(stepsByDay$x)
+medianStepsPerDay = median(stepsByDay$x)
+```
+- The mean total number of steps per day is `r sprintf("%.2f", meanStepsPerDay)`.
+- The median number of steps per day is `r medianStepsPerDay`.
 
 
 ## What is the average daily activity pattern?
-
-
+```{r}
+stepsByTimeOfDay = aggregate(d$steps, by=list(d$interval), FUN=mean)
+plot(x = stepsByTimeOfDay$Group.1, y = stepsByTimeOfDay$x, type = "l", 
+     xlab = "Time of day", ylab = "Mean number of steps")
+maxInterval = stepsByTimeOfDay[which.max(stepsByTimeOfDay$x),1]
+```
+- The maximum number of steps is contained in interval `r sprintf("%04d - %04d", maxInterval, maxInterval + 5)`
 
 ## Imputing missing values
 
+```{r}
+numMissingValues = sum(is.na(rawData$steps))
+```
+- Number of missing values = `r numMissingValues`
+
+- Strategy for filling in NA data: take from mean steps by time of day:
+```{r}
+dWithImputed = rawData
+dWithImputed[is.na(dWithImputed$steps),1] = stepsByTimeOfDay$x[match(dWithImputed[is.na(dWithImputed$steps),3], stepsByTimeOfDay$Group.1)]
+stepsByDayWithImputed = aggregate(dWithImputed$steps, by=list(dWithImputed$date), FUN=sum)
+hist(stepsByDayWithImputed$x, xlab='Steps per day', main='Histogram of steps per day, with imputed values')
+meanStepsPerDayWithImputed = mean(stepsByDayWithImputed$x)
+medianStepsPerDayWithImputed = median(stepsByDayWithImputed$x)
+```
+- The mean total number of steps per day is `r sprintf("%.2f", meanStepsPerDayWithImputed)`.
+- The median number of steps per day is `r sprintf("%.2f", medianStepsPerDayWithImputed)`.
+
+Obviously, as the imputed values were taken from the mean, the mean value has not changed. The median value has become equal to the mean.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, fig.height=8}
+weekDayEndFactor = factor(ifelse(weekdays(as.Date(dWithImputed$date)) %in% c("Saturday", "Sunday"), "weekend", "weekdays"))
+stepsByTimeOfDayWithImputed = aggregate(dWithImputed$steps, by=list(dWithImputed$interval, weekDayEndFactor), FUN=mean)
+
+layout(matrix(c(1,2)), heights = c(2,2))
+with (stepsByTimeOfDayWithImputed[stepsByTimeOfDayWithImputed$Group.2 == "weekend", ],
+  plot(x = Group.1, y = x, type = "l", xlab = "Interval", ylab = "Number of steps", main="weekend")
+)
+
+with (stepsByTimeOfDayWithImputed[stepsByTimeOfDayWithImputed$Group.2 == "weekdays", ],
+  plot(x = Group.1, y = x, type = "l", xlab = "Interval", ylab = "Number of steps", main="weekday")
+)
+```
+
+The weekend number of steps are lower, more spread throughout the day and the morning peak is a bit later.
